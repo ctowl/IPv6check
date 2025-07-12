@@ -1,0 +1,7 @@
+Package: ipv6-check
+Version: 1.0.0
+Architecture: all
+Maintainer: ctowl 
+Description: IPv6 address count checker and wan6 restarter
+Section: admin
+Priority: optional

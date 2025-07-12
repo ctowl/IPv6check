@@ -1,25 +1,36 @@
 #!/bin/sh /etc/rc.common
-
-START=95
+# (add this line at the top of your script)
+START=99
 STOP=10
-PID_FILE="/var/run/ipv6-check.pid"
-SCRIPT="/usr/bin/ipv6_check.sh"
-INTERVAL=120  # 每两分钟
 
 start() {
-    echo "Starting IPv6 checker daemon..."
-    [ -f "$PID_FILE" ] && echo "Already running" && return 1
-
-    (
-        while true; do
-            $SCRIPT
-            sleep $INTERVAL
-        done
-    ) &
-    echo $! > "$PID_FILE"
+    /etc/init.d/ipv6-check &
 }
 
 stop() {
-    echo "Stopping IPv6 checker daemon..."
-    [ -f "$PID_FILE" ] && kill "$(cat $PID_FILE)" 2>/dev/null && rm -f "$PID_FILE"
+    pkill -f "ipv6-check"
 }
+
+INTERFACE="eth2"
+TAG="IPv6_Check："
+INTERVAL=120  # 120秒 = 2分钟
+
+while true; do
+    if ! ip -6 addr show $INTERFACE >/dev/null 2>&1; then
+        logger -t $TAG " $INTERFACE not found"
+    fi
+
+    IPV6_COUNT=$(ip -6 addr show dev $INTERFACE | grep -v 'fe80::' | grep -c 'inet6 ')
+
+    logger -t $TAG "$INTERFACE IPv6 count is $IPV6_COUNT"
+
+    if [ "$IPV6_COUNT" -le 1 ] || [ "$IPV6_COUNT" -ge 3 ]; then
+        logger -t $TAG " $INTERFACE IPv6 count is $IPV6_COUNT (≤1 or ≥3), restarting wan6..."
+        ifdown wan6
+        sleep 2
+        ifup wan6
+        sleep 5
+    fi
+
+    sleep $INTERVAL
+done
